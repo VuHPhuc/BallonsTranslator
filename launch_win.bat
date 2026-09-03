@@ -38,8 +38,9 @@ goto :show_stdout_stderr
 
 :launch
 %PYTHON% -m ballontranslator  %*
+if %ERRORLEVEL% equ 0 exit /b 0
 pause
-exit /b
+exit /b %ERRORLEVEL%
 
 
 :show_stdout_stderr
