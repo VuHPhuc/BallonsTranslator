@@ -11,6 +11,7 @@
 | **01** | **Async Thumbnail Loader** | Tải thumbnail bất đồng bộ nền, fix lỗi mất ảnh khi có >100 ảnh, chống lag và chống tràn RAM/crash. | [01-async_thumbnail_loader.md](file:///e:/AI_STUFF/Ballonstranslator_win_minium/doc/01-async_thumbnail_loader.md) |
 | **02** | **Reset App Button** | Nút Reset App trên TitleBar để khởi động lại nhanh ứng dụng, đặt cạnh nút Sponsor để không ảnh hưởng tính năng gốc. | [02-reset_app_button.md](file:///e:/AI_STUFF/Ballonstranslator_win_minium/doc/02-reset_app_button.md) |
 | **03** | **CMD Auto-Close / Crash-Pause** | Tự động đóng cửa sổ CMD khi tắt app bình thường; giữ lại CMD kèm lỗi/Traceback nếu app bị crash hoặc có ngoại lệ. | [03-auto_close_cmd_on_clean_exit.md](file:///e:/AI_STUFF/Ballonstranslator_win_minium/doc/03-auto_close_cmd_on_clean_exit.md) |
+| **04** | **Global Font Format Presets** | 14 mẫu phông chữ tiếng Việt định dạng sẵn (NÓI CHUYỆN, sfx, hét to, dẫn truyện...), lưu tại `config/textstyles/default.json`. | [04-global_font_format_presets.md](file:///e:/AI_STUFF/Ballonstranslator_win_minium/doc/04-global_font_format_presets.md) |
 
 ---
 
