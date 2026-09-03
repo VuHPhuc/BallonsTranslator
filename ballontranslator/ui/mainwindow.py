@@ -56,6 +56,7 @@ from .run_pipeline_dialog import RunPipelineDialog
 from .custom_widget import ScrollBar, Widget, ViewWidget
 from .global_search_widget import GlobalSearchWidget
 from .llm_context_editor import LLMContextEditor
+from .page_thumbnails import PageThumbnailLoader
 from .text_engine.editing.commands import GlobalRepalceAllCommand
 from .text_engine.transforms.grid import start_grid_numba_warmup
 from .text_engine.effects.paint import (
@@ -145,6 +146,8 @@ class MainWindow(mainwindow_cls):
         self._render_only = False
         self._render_global_format = None
         self._llm_context_dirty = False
+        self._page_list_request_id: int = 0
+        self._page_list_items: Dict[str, QListWidgetItem] = {}
 
         self.setupThread()
         self.setupUi()
@@ -216,6 +219,8 @@ class MainWindow(mainwindow_cls):
         self.auto_tate_chu_yoko_progress.showed.connect(
             self.on_imgtrans_progressbox_showed
         )
+        self.thumbnail_loader = PageThumbnailLoader(self)
+        self.thumbnail_loader.thumbnails_ready.connect(self._on_thumbnails_ready)
 
     def resetStyleSheet(self):
         theme = 'eva-dark' if pcfg.darkmode else 'eva-light'
@@ -798,19 +803,47 @@ class MainWindow(mainwindow_cls):
             create_error_dialog(e, self.tr('Failed to load project from') + json_path)
         
     def updatePageList(self):
+        self._page_list_request_id += 1
+        req_id = self._page_list_request_id
+        self._page_list_items.clear()
         if self.pageList.count() != 0:
             self.pageList.clear()
-        if len(self.imgtrans_proj.pages) >= shared.PAGELIST_THUMBNAIL_MAXNUM:
-            item_func = lambda imgname: QListWidgetItem(imgname)
-        else:
-            item_func = lambda imgname:\
-                QListWidgetItem(QIcon(osp.join(self.imgtrans_proj.directory, imgname)), imgname)
+
+        placeholder_pixmap = QPixmap(
+            shared.PAGELIST_THUMBNAIL_SIZE,
+            shared.PAGELIST_THUMBNAIL_SIZE,
+        )
+        placeholder_pixmap.fill(Qt.GlobalColor.transparent)
+        placeholder_icon = QIcon(placeholder_pixmap)
+
         for imgname in self.imgtrans_proj.pages:
-            lstitem =  item_func(imgname)
+            lstitem = QListWidgetItem(placeholder_icon, imgname)
             self.pageList.addItem(lstitem)
+            self._page_list_items[imgname] = lstitem
             if imgname == self.imgtrans_proj.current_img:
                 self.pageList.setCurrentItem(lstitem)
+
         self.llmContextEditor.set_project(self.imgtrans_proj)
+
+        if self.imgtrans_proj.directory and self.imgtrans_proj.pages:
+            self.thumbnail_loader.load_pages(
+                req_id,
+                self.imgtrans_proj.directory,
+                list(self.imgtrans_proj.pages.keys()),
+                self.imgtrans_proj.current_img,
+            )
+
+    def _on_thumbnails_ready(
+        self,
+        request_id: int,
+        batch: List[Tuple[str, str]],
+    ) -> None:
+        if request_id != self._page_list_request_id:
+            return
+        for imgname, cache_path in batch:
+            item = self._page_list_items.get(imgname)
+            if item is not None and osp.exists(cache_path):
+                item.setIcon(QIcon(cache_path))
 
     def _set_left_panel_content(
         self,
@@ -844,6 +877,9 @@ class MainWindow(mainwindow_cls):
         # before the close-time dirty check and final config snapshot.
         self.st_manager.formatpanel.resolve_text_transform_edits_for_save()
         self.st_manager.formatpanel.stop_text_effect_generation_for_shutdown()
+        if hasattr(self, 'thumbnail_loader') and self.thumbnail_loader.isRunning():
+            self.thumbnail_loader.request_stop()
+            self.thumbnail_loader.wait()
         if self.auto_tate_chu_yoko_thread.isRunning():
             self.auto_tate_chu_yoko_thread.request_stop()
             self.auto_tate_chu_yoko_thread.wait()
@@ -963,6 +999,7 @@ class MainWindow(mainwindow_cls):
         self.titleBar.font_exclusion_trigger.connect(
             self.configPanel.show_font_exclusion_dialog
         )
+        self.titleBar.reset_app_trigger.connect(self.on_reset_app)
 
         shortcutA = QShortcut(QKeySequence("A"), self)
         shortcutA.activated.connect(self.shortcutBefore)
@@ -1110,6 +1147,15 @@ class MainWindow(mainwindow_cls):
     def on_undo(self):
         self.st_manager.formatpanel.resolve_text_transform_edits_for_history_change()
         self.canvas.undo()
+
+    def on_reset_app(self) -> None:
+        msg = QMessageBox(self)
+        msg.setWindowTitle(self.tr('Reset App'))
+        msg.setText(self.tr('Restart to reset the application? \n'))
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        ret = msg.exec_()
+        if ret == QMessageBox.StandardButton.Yes:
+            self.restart_signal.emit()
 
     def on_page_search(self) -> None:
         if self.canvas.gv.isVisible():
