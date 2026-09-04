@@ -155,7 +155,8 @@ class MainWindow(mainwindow_cls):
         self.setupConfig()
         self.setupShortcuts()
         self.setupRegisterWidget()
-        if not shared.ON_WINDOWS:
+        self.restoreWindowGeometry()
+        if not shared.ON_WINDOWS and getattr(pcfg, 'window_maximized', False):
             FramelessMoveResize.toggleMaxState(self)
         self.setAcceptDrops(True)
 
@@ -173,7 +174,8 @@ class MainWindow(mainwindow_cls):
         if shared.ON_MACOS:
             # https://bugreports.qt.io/browse/QTBUG-133215
             self.hideSystemTitleBar()
-            self.showMaximized()
+            if getattr(pcfg, 'window_maximized', False):
+                self.showMaximized()
 
         show_release_info = exec_args.get('show_release_info', False)
         if not shared.HEADLESS and (show_release_info or pcfg.check_update_on_startup):
@@ -230,7 +232,8 @@ class MainWindow(mainwindow_cls):
 
     def setupUi(self):
         screen_size = QGuiApplication.primaryScreen().geometry().size()
-        self.setMinimumWidth(screen_size.width() // 2)
+        self.setMinimumWidth(min(750, screen_size.width() // 2))
+        self.setMinimumHeight(450)
         self.configPanel = ConfigPanel(self)
         self.configPanel.show_pre_MT_keyword_window.connect(
             self.show_pre_MT_keyword_window
@@ -892,8 +895,52 @@ class MainWindow(mainwindow_cls):
         self.st_manager.hovering_transwidget = None
         self.st_manager.blockSignals(True)
         self.canvas.prepareClose()
+        self.saveWindowGeometry()
         self.save_config()
         return super().closeEvent(event)
+
+    def restoreWindowGeometry(self):
+        if not getattr(pcfg, 'remember_window_size', True):
+            return
+
+        saved_size = getattr(pcfg, 'window_size', None)
+        if saved_size and len(saved_size) == 2:
+            w, h = saved_size
+            if isinstance(w, int) and isinstance(h, int) and w >= 400 and h >= 300:
+                self.resize(w, h)
+
+        saved_pos = getattr(pcfg, 'window_pos', None)
+        if saved_pos and len(saved_pos) == 2:
+            x, y = saved_pos
+            if isinstance(x, int) and isinstance(y, int):
+                pos = QPoint(x, y)
+                visible = False
+                for screen in QGuiApplication.screens():
+                    if screen.availableGeometry().contains(pos):
+                        visible = True
+                        break
+                if visible:
+                    self.move(x, y)
+
+    def saveWindowGeometry(self):
+        if not getattr(pcfg, 'remember_window_size', True):
+            return
+
+        if self.isMaximized():
+            pcfg.window_maximized = True
+            geom = self.normalGeometry()
+            if geom.isValid() and geom.width() >= 400 and geom.height() >= 300:
+                pcfg.window_size = [geom.width(), geom.height()]
+                pcfg.window_pos = [geom.x(), geom.y()]
+        elif self.isMinimized():
+            geom = self.normalGeometry()
+            if geom.isValid() and geom.width() >= 400 and geom.height() >= 300:
+                pcfg.window_size = [geom.width(), geom.height()]
+                pcfg.window_pos = [geom.x(), geom.y()]
+        else:
+            pcfg.window_maximized = False
+            pcfg.window_size = [self.width(), self.height()]
+            pcfg.window_pos = [self.x(), self.y()]
 
     def changeEvent(self, event: QEvent):
         if event.type() == QEvent.Type.WindowStateChange:
@@ -1017,6 +1064,8 @@ class MainWindow(mainwindow_cls):
         shortcutZoomIn.activated.connect(self.canvas.gv.scale_up_signal)
         shortcutZoomOut = QShortcut(QKeySequence.StandardKey.ZoomOut, self)
         shortcutZoomOut.activated.connect(self.canvas.gv.scale_down_signal)
+        shortcutZoomReset = QShortcut(QKeySequence("Ctrl+0"), self)
+        shortcutZoomReset.activated.connect(self.canvas.resetZoom)
         shortcutCtrlD = QShortcut(QKeySequence("Ctrl+D"), self)
         shortcutCtrlD.activated.connect(self.shortcutCtrlD)
         shortcutSpace = QShortcut(QKeySequence("Space"), self)
@@ -1149,13 +1198,7 @@ class MainWindow(mainwindow_cls):
         self.canvas.undo()
 
     def on_reset_app(self) -> None:
-        msg = QMessageBox(self)
-        msg.setWindowTitle(self.tr('Reset App'))
-        msg.setText(self.tr('Restart to reset the application? \n'))
-        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        ret = msg.exec_()
-        if ret == QMessageBox.StandardButton.Yes:
-            self.restart_signal.emit()
+        self.restart_signal.emit()
 
     def on_page_search(self) -> None:
         if self.canvas.gv.isVisible():

@@ -389,6 +389,12 @@ class ProgramConfig(Config):
     text_transform_panel: bool = True
     expand_ttransform_panel: bool = True
     excluded_fonts: List[str] = field(default_factory=list)
+    remember_window_size: bool = True
+    window_size: List[int] = field(default_factory=lambda: [1280, 800])
+    window_pos: Optional[List[int]] = None
+    window_maximized: bool = False
+    remember_image_zoom: bool = True
+    canvas_zoom: float = 1.0
 
     @staticmethod
     def load(cfg_path: str):
@@ -423,6 +429,67 @@ class ProgramConfig(Config):
                         'Discard invalid or duplicate entries in excluded_fonts config.'
                     )
                 config_dict['excluded_fonts'] = normalized_fonts
+
+        if 'window_size' in config_dict:
+            ws = config_dict['window_size']
+            if (
+                not isinstance(ws, list)
+                or len(ws) != 2
+                or not all(isinstance(x, int) and x >= 400 for x in ws)
+            ):
+                LOGGER.warning(
+                    'Discard invalid window_size config: expected a list of 2 positive integers.'
+                )
+                config_dict.pop('window_size')
+
+        if 'window_pos' in config_dict:
+            wp = config_dict['window_pos']
+            if (
+                wp is not None
+                and (
+                    not isinstance(wp, list)
+                    or len(wp) != 2
+                    or not all(isinstance(x, int) for x in wp)
+                )
+            ):
+                LOGGER.warning(
+                    'Discard invalid window_pos config: expected None or a list of 2 integers.'
+                )
+                config_dict.pop('window_pos')
+
+        if 'canvas_zoom' in config_dict:
+            cz = config_dict['canvas_zoom']
+            if not isinstance(cz, (int, float)) or cz <= 0:
+                LOGGER.warning(
+                    'Discard invalid canvas_zoom config: expected a positive number.'
+                )
+                config_dict.pop('canvas_zoom')
+            else:
+                config_dict['canvas_zoom'] = float(cz)
+
+        if 'remember_window_size' in config_dict and not isinstance(
+            config_dict['remember_window_size'], bool
+        ):
+            LOGGER.warning(
+                'Discard invalid remember_window_size config: expected a boolean.'
+            )
+            config_dict.pop('remember_window_size')
+
+        if 'window_maximized' in config_dict and not isinstance(
+            config_dict['window_maximized'], bool
+        ):
+            LOGGER.warning(
+                'Discard invalid window_maximized config: expected a boolean.'
+            )
+            config_dict.pop('window_maximized')
+
+        if 'remember_image_zoom' in config_dict and not isinstance(
+            config_dict['remember_image_zoom'], bool
+        ):
+            LOGGER.warning(
+                'Discard invalid remember_image_zoom config: expected a boolean.'
+            )
+            config_dict.pop('remember_image_zoom')
 
         if 'module' in config_dict:
             module_cfg = config_dict['module']

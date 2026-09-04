@@ -394,12 +394,13 @@ def main():
         ballontrans.setWindowIcon(QIcon(shared.ICON_PATH))
         ballontrans.show()
         if shared.ON_WINDOWS:
-            from ballontranslator.ui.framelesswindow import FramelessMoveResize
-            # SC_MAXIMIZE animates only after the normal window is visible.
-            QTimer.singleShot(
-                0,
-                lambda: FramelessMoveResize.maximize(ballontrans),
-            )
+            if getattr(config, 'window_maximized', False):
+                from ballontranslator.ui.framelesswindow import FramelessMoveResize
+                # SC_MAXIMIZE animates only after the normal window is visible.
+                QTimer.singleShot(
+                    0,
+                    lambda: FramelessMoveResize.maximize(ballontrans),
+                )
     if updated_mirrors:
         create_info_dialog(QApplication.translate(
             'NetworkMirrors',

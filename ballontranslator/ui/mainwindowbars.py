@@ -463,6 +463,7 @@ class TitleBar(Widget):
 
         self.resetAppToolBtn = TitleBarToolBtn(self)
         self.resetAppToolBtn.setText(self.tr('Reset App'))
+        self.resetAppToolBtn.setToolTip(self.tr('Restart application immediately'))
         self.resetAppToolBtn.setIcon(QIcon(themed_icon_path('rotation.svg')))
         self.resetAppToolBtn.setIconSize(QSize(16, 16))
         self.resetAppToolBtn.setToolButtonStyle(

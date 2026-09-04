@@ -108,7 +108,9 @@ Important areas:
 - For Qt threading, signals, model loading, project JSON compatibility, and file IO, add short comments when the ordering or side effect is important.
 - Prefer comments that explain why code is structured a certain way, not what each line does.
 - Do not add boilerplate comments, redundant docstrings, or comments that merely repeat function or variable names.
-- When refactoring complex logic, add a brief comment before the extracted block if it preserves a subtle behavior from the old implementation.
+## Git & Push Rules
+
+- Never push code to remote repositories (`git push`) automatically unless the user explicitly requests/commands it.
 
 ## Done Criteria For Features
 

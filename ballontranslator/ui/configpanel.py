@@ -871,6 +871,20 @@ class ConfigPanel(OutsideClickFramelessMixin, FramelessWindow):
         self.check_update_on_startup_checker, _ = applicationConfigPanel.addCheckBox(self.tr('Check update on startup'))
         self.check_update_on_startup_checker.stateChanged.connect(self.on_check_update_onstartup_changed)
 
+        self.remember_window_size_checker, _ = applicationConfigPanel.addCheckBox(
+            self.tr('Remember window size and state')
+        )
+        self.remember_window_size_checker.stateChanged.connect(
+            self.on_remember_window_size_changed
+        )
+
+        self.remember_image_zoom_checker, _ = applicationConfigPanel.addCheckBox(
+            self.tr('Remember image zoom level')
+        )
+        self.remember_image_zoom_checker.stateChanged.connect(
+            self.on_remember_image_zoom_changed
+        )
+
         self.spellcheck_checker, _ = spellcheckConfigPanel.addCheckBox(self.tr('Enable'))
         self.spellcheck_checker.stateChanged.connect(self.on_spellcheck_changed)
 
@@ -1447,6 +1461,12 @@ class ConfigPanel(OutsideClickFramelessMixin, FramelessWindow):
     def on_check_update_onstartup_changed(self):
         pcfg.check_update_on_startup = self.check_update_on_startup_checker.isChecked()
 
+    def on_remember_window_size_changed(self):
+        pcfg.remember_window_size = self.remember_window_size_checker.isChecked()
+
+    def on_remember_image_zoom_changed(self):
+        pcfg.remember_image_zoom = self.remember_image_zoom_checker.isChecked()
+
     def on_spellcheck_changed(self):
         enabled = self.spellcheck_checker.isChecked()
         if enabled:
@@ -1774,6 +1794,12 @@ class ConfigPanel(OutsideClickFramelessMixin, FramelessWindow):
         if pcfg.open_recent_on_startup:
             self.open_on_startup_checker.setChecked(True)
         self.check_update_on_startup_checker.setChecked(pcfg.check_update_on_startup)
+        self.remember_window_size_checker.setChecked(
+            getattr(pcfg, 'remember_window_size', True)
+        )
+        self.remember_image_zoom_checker.setChecked(
+            getattr(pcfg, 'remember_image_zoom', True)
+        )
         
         # Setup repository dictionaries
         active_repos = pcfg.spellcheck_repo_dicts.split(',')

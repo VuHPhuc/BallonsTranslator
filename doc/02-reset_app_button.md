@@ -22,10 +22,8 @@
 
 ### 2.2. Luồng xử lý sự kiện
 1. Người dùng nhấn nút "Reset App".
-2. Hộp thoại xác nhận `QMessageBox` xuất hiện hỏi: *"Restart to reset the application?"*.
-3. Nếu người dùng chọn **No**: Hủy bỏ, không có gì thay đổi.
-4. Nếu người dùng chọn **Yes**: Gọi `self.restart_signal.emit()`.
-5. Tín hiệu này đã được kết nối với hàm `launch.restart()` trong `launch.py`:
+2. Ứng dụng lập tức phát tín hiệu `self.restart_signal.emit()` mà không cần hộp thoại xác nhận (reset tức thì).
+3. Tín hiệu này đã được kết nối với hàm `launch.restart()` trong `launch.py`:
    - Lưu lại các thông số cấu hình và tham số dòng lệnh ban đầu.
    - Khởi động một tiến trình ứng dụng mới.
    - Đóng tiến trình hiện tại an toàn, giải phóng toàn bộ tài nguyên.
@@ -34,11 +32,12 @@
 
 ## 3. Các file và đoạn code liên quan
 
-### 3.1. File: [ballontranslator/ui/mainwindowbars.py](file:///e:/AI_STUFF/Ballonstranslator_win_minium/ballontranslator/ui/mainwindowbars.py)
+### 3.1. File: [ballontranslator/ui/mainwindowbars.py](file:///d:/ai_stuff/Ballonstranslator_win_minium/ballontranslator/ui/mainwindowbars.py)
 - **Khai báo nút**:
   ```python
   self.resetAppToolBtn = TitleBarToolBtn(self)
   self.resetAppToolBtn.setText(self.tr('Reset App'))
+  self.resetAppToolBtn.setToolTip(self.tr('Restart application immediately'))
   self.resetAppToolBtn.setIcon(QIcon(themed_icon_path('rotation.svg')))
   self.resetAppToolBtn.setIconSize(QSize(16, 16))
   self.resetAppToolBtn.setToolButtonStyle(
@@ -52,21 +51,15 @@
   hlayout.addWidget(self.resetAppToolBtn)
   ```
 
-### 3.2. File: [ballontranslator/ui/mainwindow.py](file:///e:/AI_STUFF/Ballonstranslator_win_minium/ballontranslator/ui/mainwindow.py)
+### 3.2. File: [ballontranslator/ui/mainwindow.py](file:///d:/ai_stuff/Ballonstranslator_win_minium/ballontranslator/ui/mainwindow.py)
 - **Kết nối trong `setupShortcuts()`**:
   ```python
   self.titleBar.reset_app_trigger.connect(self.on_reset_app)
   ```
-- **Định nghĩa hàm xử lý**:
+- **Định nghĩa hàm xử lý (reset ngay lập tức)**:
   ```python
   def on_reset_app(self) -> None:
-      msg = QMessageBox(self)
-      msg.setWindowTitle(self.tr('Reset App'))
-      msg.setText(self.tr('Restart to reset the application? \n'))
-      msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-      ret = msg.exec_()
-      if ret == QMessageBox.StandardButton.Yes:
-          self.restart_signal.emit()
+      self.restart_signal.emit()
   ```
 
 ---

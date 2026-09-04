@@ -213,7 +213,10 @@ class Canvas(QGraphicsScene):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.scale_factor = 1.
+        if getattr(pcfg, 'remember_image_zoom', True) and getattr(pcfg, 'canvas_zoom', None):
+            self.scale_factor = float(np.clip(pcfg.canvas_zoom, CANVAS_SCALE_MIN, CANVAS_SCALE_MAX))
+        else:
+            self.scale_factor = 1.
         self.text_transparency = 0
         self.textblock_mode = False
         self.order_badges_visible = True
@@ -274,7 +277,7 @@ class Canvas(QGraphicsScene):
 
         self.scaleFactorLabel = FadeLabel(self.gv)
         self.scaleFactorLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.scaleFactorLabel.setText('100%')
+        self.scaleFactorLabel.setText(f'{self.scale_factor*100:2.0f}%')
         self.scaleFactorLabel.gv = self.gv
 
         self.txtblkShapeControl = TextBlkShapeControl(self.gv)
@@ -659,6 +662,8 @@ class Canvas(QGraphicsScene):
         self.baseLayer.setScale(self.scale_factor)
 
         if scale_changed:
+            if getattr(pcfg, 'remember_image_zoom', True):
+                pcfg.canvas_zoom = round(float(self.scale_factor), 4)
             self.adjustScrollBar(self.gv.horizontalScrollBar(), factor)
             self.adjustScrollBar(self.gv.verticalScrollBar(), factor)
             self.scalefactor_changed.emit()
@@ -669,6 +674,14 @@ class Canvas(QGraphicsScene):
             self.baseLayer.sceneBoundingRect().height(),
         )
         self.refresh_text_shape_control()
+
+    def resetZoom(self) -> None:
+        if not self.gv.isVisible() or not self.imgtrans_proj.img_valid:
+            return
+        if self.scale_factor == 1.0:
+            return
+        factor = 1.0 / self.scale_factor
+        self.scaleImage(factor)
 
     def onViewResized(self) -> None:
         gv_w, gv_h = self.gv.geometry().width(), self.gv.geometry().height()
@@ -1358,7 +1371,17 @@ class Canvas(QGraphicsScene):
             self.baseLayer.setRect(QRectF(im_rect))
             if im_rect != self.sceneRect():
                 self.setSceneRect(0, 0, im_rect.width(), im_rect.height())
-            self.scaleImage(1)
+            if getattr(pcfg, 'remember_image_zoom', True) and getattr(pcfg, 'canvas_zoom', None):
+                self.scale_factor = float(np.clip(pcfg.canvas_zoom, CANVAS_SCALE_MIN, CANVAS_SCALE_MAX))
+            self.baseLayer.setScale(self.scale_factor)
+            self.setSceneRect(
+                0,
+                0,
+                self.baseLayer.sceneBoundingRect().width(),
+                self.baseLayer.sceneBoundingRect().height(),
+            )
+            self.scaleFactorLabel.setText(f'{self.scale_factor*100:2.0f}%')
+            self.refresh_text_shape_control()
 
         self.setDrawingLayer()
 
