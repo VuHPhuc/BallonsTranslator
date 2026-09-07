@@ -160,13 +160,13 @@ class MainWindow(mainwindow_cls):
             FramelessMoveResize.toggleMaxState(self)
         self.setAcceptDrops(True)
 
+        from ballontranslator.utils.folder_history import FolderHistoryManager
+        folder_hist_mgr = FolderHistoryManager.get_instance()
+        if len(self.leftBar.recent_proj_list) > 0:
+            folder_hist_mgr.import_from_recent_proj_list(self.leftBar.recent_proj_list)
+
         if open_dir != '' and osp.exists(open_dir):
             self.OpenProj(open_dir)
-        elif pcfg.open_recent_on_startup:
-            if len(self.leftBar.recent_proj_list) > 0:
-                proj_dir = self.leftBar.recent_proj_list[0]
-                if osp.exists(proj_dir):
-                    self.OpenProj(proj_dir)
 
         if shared.HEADLESS:
             self.run_batch(**exec_args)
@@ -251,6 +251,7 @@ class MainWindow(mainwindow_cls):
         self.leftBar.globalSearchChecker.clicked.connect(self.on_set_gsearch_widget)
         self.leftBar.open_dir.connect(self.OpenProj)
         self.leftBar.open_json_proj.connect(self.openJsonProj)
+        self.leftBar.show_folder_history.connect(self.showFolderHistoryDialog)
         self.leftBar.save_proj.connect(self.manual_save)
         self.leftBar.export_doc.connect(self.on_export_doc)
         self.leftBar.import_doc.connect(self.on_import_doc)
@@ -755,6 +756,19 @@ class MainWindow(mainwindow_cls):
             self.updatePageList()
             self._llm_context_dirty = False
             self.opening_dir = False
+            try:
+                from ballontranslator.utils.folder_history import FolderHistoryManager
+                pages = getattr(self.imgtrans_proj, 'pages', {})
+                page_count = len(pages) if pages else -1
+                first_page = list(pages.keys())[0] if pages else None
+                first_page_path = osp.join(directory, first_page) if first_page else None
+                FolderHistoryManager.get_instance().add_or_update(
+                    directory,
+                    page_count=page_count,
+                    cover_image=first_page_path,
+                )
+            except Exception:
+                pass
         except Exception as e:
             self.opening_dir = False
             create_error_dialog(e, self.tr('Failed to load project ') + directory)
@@ -1048,6 +1062,15 @@ class MainWindow(mainwindow_cls):
         )
         self.titleBar.reset_app_trigger.connect(self.on_reset_app)
 
+        app_ctx = getattr(getattr(Qt, 'ShortcutContext', Qt), 'ApplicationShortcut')
+        self.shortcutHistoryH = QShortcut(QKeySequence("Ctrl+H"), self)
+        self.shortcutHistoryH.setContext(app_ctx)
+        self.shortcutHistoryH.activated.connect(self.showFolderHistoryDialog)
+
+        self.shortcutHistoryO = QShortcut(QKeySequence("Ctrl+O"), self)
+        self.shortcutHistoryO.setContext(app_ctx)
+        self.shortcutHistoryO.activated.connect(self.showFolderHistoryDialog)
+
         shortcutA = QShortcut(QKeySequence("A"), self)
         shortcutA.activated.connect(self.shortcutBefore)
         shortcutPageUp = QShortcut(QKeySequence(QKeySequence.StandardKey.MoveToPreviousPage), self)
@@ -1199,6 +1222,35 @@ class MainWindow(mainwindow_cls):
 
     def on_reset_app(self) -> None:
         self.restart_signal.emit()
+
+    def showFolderHistoryDialog(self) -> None:
+        if shared.HEADLESS:
+            return
+        from qtpy.QtWidgets import QDialog, QApplication
+        from ballontranslator.ui.folder_launcher_dialog import FolderLauncherDialog
+
+        was_maximized = self.isMaximized()
+        self.hide()
+        QApplication.processEvents()
+
+        try:
+            launcher = FolderLauncherDialog()
+            launcher.setWindowIcon(self.windowIcon())
+            accepted = getattr(getattr(QDialog, 'DialogCode', QDialog), 'Accepted')
+            res = launcher.exec_()
+            chosen = launcher.selected_folder if (res == accepted) else None
+        finally:
+            self.show()
+            if was_maximized and shared.ON_WINDOWS:
+                from ballontranslator.ui.framelesswindow import FramelessMoveResize
+                from qtpy.QtCore import QTimer
+                QTimer.singleShot(0, lambda: FramelessMoveResize.maximize(self))
+            QApplication.processEvents()
+
+        if chosen:
+            current_dir = getattr(self.imgtrans_proj, 'directory', None)
+            if not current_dir or osp.normpath(chosen) != osp.normpath(current_dir):
+                self.OpenProj(chosen)
 
     def on_page_search(self) -> None:
         if self.canvas.gv.isVisible():

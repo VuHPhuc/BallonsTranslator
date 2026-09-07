@@ -392,6 +392,18 @@ def main():
 
     if not args.headless:
         ballontrans.setWindowIcon(QIcon(shared.ICON_PATH))
+
+        # Hiển thị popup chọn thư mục trước khi mở màn hình chính
+        chosen_folder = None
+        if not args.proj_dir:
+            from qtpy.QtWidgets import QDialog
+            from ballontranslator.ui.folder_launcher_dialog import FolderLauncherDialog
+            launcher = FolderLauncherDialog()
+            launcher.setWindowIcon(QIcon(shared.ICON_PATH))
+            accepted = getattr(getattr(QDialog, 'DialogCode', QDialog), 'Accepted')
+            if launcher.exec_() == accepted and launcher.selected_folder:
+                chosen_folder = launcher.selected_folder
+
         ballontrans.show()
         if shared.ON_WINDOWS:
             if getattr(config, 'window_maximized', False):
@@ -401,6 +413,9 @@ def main():
                     0,
                     lambda: FramelessMoveResize.maximize(ballontrans),
                 )
+        if chosen_folder:
+            ballontrans.OpenProj(chosen_folder)
+        QApplication.processEvents()
     if updated_mirrors:
         create_info_dialog(QApplication.translate(
             'NetworkMirrors',

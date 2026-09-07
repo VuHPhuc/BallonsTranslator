@@ -92,6 +92,7 @@ class LeftBar(Widget):
     configChecked = Signal()
     open_dir = Signal(str)
     open_json_proj = Signal(str)
+    show_folder_history = Signal()
     save_proj = Signal()
     save_config = Signal()
     run_imgtrans_clicked = Signal()
@@ -116,9 +117,11 @@ class LeftBar(Widget):
         self.configChecker.checked.connect(self.configCheckerChanged)
         self.configChecker.unchecked.connect(self.configCheckerChanged)
 
-        actionOpenFolder = QAction(self.tr("Open Folder ..."), self)
+        actionHistory = QAction(self.tr("Folder History / Start Screen... (Ctrl+O)"), self)
+        actionHistory.triggered.connect(self.show_folder_history.emit)
+
+        actionOpenFolder = QAction(self.tr("Browse Folder ..."), self)
         actionOpenFolder.triggered.connect(self.onOpenFolder)
-        actionOpenFolder.setShortcut(QKeySequence.Open)
 
         actionOpenProj = QAction(self.tr("Open Project ... *.json"), self)
         actionOpenProj.triggered.connect(self.onOpenProj)
@@ -151,7 +154,7 @@ class LeftBar(Widget):
         openMenu = QMenu(self.openBtn)
         # Keep submenu ownership aligned with the visual popup chain for Wayland.
         self.recentMenu = QMenu(self.tr("Open Recent"), openMenu)
-        openMenu.addActions([actionOpenFolder, actionOpenProj])
+        openMenu.addActions([actionHistory, actionOpenFolder, actionOpenProj])
         openMenu.addMenu(self.recentMenu)
         openMenu.addSeparator()
         openMenu.addActions([
@@ -243,6 +246,13 @@ class LeftBar(Widget):
                 self.recent_proj_list.pop()
 
         self.save_config.emit()
+        try:
+            from ballontranslator.utils.folder_history import FolderHistoryManager
+            for p in self.recent_proj_list:
+                if osp.isdir(p):
+                    FolderHistoryManager.get_instance().add_or_update(p)
+        except Exception:
+            pass
 
     def recentActionTriggered(self):
         path = self.sender().text()

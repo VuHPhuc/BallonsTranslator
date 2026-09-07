@@ -13,6 +13,7 @@
 | **03** | **CMD Auto-Close / Crash-Pause** | Tự động đóng cửa sổ CMD khi tắt app bình thường; giữ lại CMD kèm lỗi/Traceback nếu app bị crash hoặc có ngoại lệ. | [03-auto_close_cmd_on_clean_exit.md](file:///e:/AI_STUFF/Ballonstranslator_win_minium/doc/03-auto_close_cmd_on_clean_exit.md) |
 | **04** | **Global Font Format Presets** | 14 mẫu phông chữ tiếng Việt định dạng sẵn (NÓI CHUYỆN, sfx, hét to, dẫn truyện...), lưu tại `config/textstyles/default.json`. | [04-global_font_format_presets.md](file:///d:/ai_stuff/Ballonstranslator_win_minium/doc/04-global_font_format_presets.md) |
 | **05** | **Window & Zoom Persistence** | Lưu nhớ kích thước cửa sổ (cho phép thu nhỏ về min, không ép fullscreen) và lưu tỷ lệ zoom ảnh (% setup). | [05-remember_window_size_and_image_zoom.md](file:///d:/ai_stuff/Ballonstranslator_win_minium/doc/05-remember_window_size_and_image_zoom.md) |
+| **06** | **Folder History & Startup Screen** | Màn hình chào lưu lịch sử mở thư mục bằng JSON (không mất khi update), phím tắt `Ctrl+O`/`Ctrl+H`, ngôi sao ⭐ bảo vệ thư mục khi xóa lịch sử. | [06-folder_history_and_startup_screen.md](file:///d:/ai_stuff/Ballonstranslator_win_minium/doc/06-folder_history_and_startup_screen.md) |
 
 ---
 
