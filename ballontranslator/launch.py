@@ -289,7 +289,7 @@ def main():
     app_args = sys.argv
     if args.headless:
         app_args = sys.argv + ['-platform', 'offscreen']
-    app = QApplication(app_args)
+    app = QApplication.instance() or QApplication(app_args)
     app.setApplicationName('BalloonsTranslator')
     app.setApplicationVersion(APP_VERSION)
 
@@ -380,9 +380,24 @@ def main():
 
     setup_locks()
 
+    chosen_folder = args.proj_dir
+    if not args.headless and not chosen_folder:
+        from qtpy.QtWidgets import QDialog
+        from ballontranslator.ui.folder_launcher_dialog import FolderLauncherDialog
+        launcher = FolderLauncherDialog()
+        launcher.setWindowIcon(QIcon(shared.ICON_PATH))
+        accepted = getattr(getattr(QDialog, 'DialogCode', QDialog), 'Accepted')
+        res = launcher.exec_()
+        if res != accepted or not launcher.selected_folder:
+            launcher.close()
+            launcher.deleteLater()
+            return 0
+        chosen_folder = launcher.selected_folder
+        launcher.deleteLater()
+
     from ballontranslator.ui.mainwindow import MainWindow
     from ballontranslator.utils.message import create_info_dialog
-    ballontrans = MainWindow(app, config, open_dir=args.proj_dir, **vars(args))
+    ballontrans = MainWindow(app, config, open_dir=chosen_folder, **vars(args))
     delete_on_close = getattr(Qt, 'WidgetAttribute', Qt).WA_DeleteOnClose
     # Destroy the Qt window tree before SIP performs interpreter-exit cleanup.
     ballontrans.setAttribute(delete_on_close, True)
@@ -392,18 +407,6 @@ def main():
 
     if not args.headless:
         ballontrans.setWindowIcon(QIcon(shared.ICON_PATH))
-
-        # Hiển thị popup chọn thư mục trước khi mở màn hình chính
-        chosen_folder = None
-        if not args.proj_dir:
-            from qtpy.QtWidgets import QDialog
-            from ballontranslator.ui.folder_launcher_dialog import FolderLauncherDialog
-            launcher = FolderLauncherDialog()
-            launcher.setWindowIcon(QIcon(shared.ICON_PATH))
-            accepted = getattr(getattr(QDialog, 'DialogCode', QDialog), 'Accepted')
-            if launcher.exec_() == accepted and launcher.selected_folder:
-                chosen_folder = launcher.selected_folder
-
         ballontrans.show()
         if shared.ON_WINDOWS:
             if getattr(config, 'window_maximized', False):
@@ -413,8 +416,6 @@ def main():
                     0,
                     lambda: FramelessMoveResize.maximize(ballontrans),
                 )
-        if chosen_folder:
-            ballontrans.OpenProj(chosen_folder)
         QApplication.processEvents()
     if updated_mirrors:
         create_info_dialog(QApplication.translate(

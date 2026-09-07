@@ -940,6 +940,9 @@ class MainWindow(mainwindow_cls):
         if not getattr(pcfg, 'remember_window_size', True):
             return
 
+        if not self.isVisible():
+            return
+
         if self.isMaximized():
             pcfg.window_maximized = True
             geom = self.normalGeometry()

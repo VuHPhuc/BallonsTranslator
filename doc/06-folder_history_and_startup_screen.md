@@ -21,7 +21,7 @@
 | :--- | :--- |
 | `ballontranslator/utils/folder_history.py` | Quản lý logic lịch sử, đếm số trang ảnh, lấy ảnh bìa truyện, lưu JSON nguyên tử (`.tmp` -> rename), phân loại và bảo vệ thư mục có gắn sao. |
 | `ballontranslator/ui/folder_launcher_dialog.py` | Cửa sổ popup Launcher / Welcome độc lập, hiện lên ngay khi khởi động trước khi mở MainWindow (giúp màn hình dịch có thời gian tải ngầm); thẻ truyện hiển thị ảnh bìa, ngôi sao phát sáng ⭐, tìm kiếm tức thời. |
-| `ballontranslator/launch.py` | Hiển thị `FolderLauncherDialog` trước khi gọi `ballontrans.show()`; khi người dùng chọn xong thư mục thì MainWindow mới hiển thị. |
+| `ballontranslator/launch.py` | Hiển thị `FolderLauncherDialog` trước khi tạo/hiển thị MainWindow. Khi người dùng chọn thư mục thì MainWindow mới mở trực tiếp thư mục đó; nếu người dùng ấn nút X hoặc phím Esc để đóng popup thì ứng dụng sẽ tắt hoàn toàn (không vào màn hình dịch). |
 | `ballontranslator/ui/mainwindowbars.py` | Thêm signal `show_folder_history`, gắn action vào `openMenu` của `LeftBar` với shortcut `QKeySequence.Open` (`Ctrl+O`). |
 | `ballontranslator/ui/mainwindow.py` | Kết nối phím tắt `Ctrl+O` / `Ctrl+H` và nút Open để mở lại popup Launcher bất cứ lúc nào trong khi dịch. |
 | `tests/test_folder_history.py` | Bộ test tự động kiểm tra lưu trữ JSON, chuyển đổi sao ⭐, và xác nhận tính năng bảo toàn thư mục có sao khi dọn dẹp lịch sử. |
@@ -54,6 +54,7 @@
    - Màn hình Lịch sử thư mục sẽ xuất hiện ở giữa màn hình.
    - Click vào bất kỳ thẻ thư mục nào để mở ngay vào giao diện làm việc.
    - Hoặc click *"📂 Mở thư mục mới..."* để chọn một thư mục khác từ máy tính.
+   - Nếu bấm nút **X** (hoặc phím **Esc**) ở góc trên bên phải để đóng popup, ứng dụng sẽ tắt hoàn toàn thay vì chuyển sang màn hình dịch.
 2. **Gắn sao bảo vệ ⭐**:
    - Bấm vào biểu tượng ngôi sao bên phải mỗi thẻ để gắn sao/bỏ gắn sao.
    - Thư mục có gắn sao sẽ tự động được ưu tiên đưa lên đầu danh sách.
