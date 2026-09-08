@@ -37,7 +37,7 @@ if ($UseLocalSource) {
     $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
     
     # Copy project files excluding git, github, temp, and current build dirs
-    $ExcludePatterns = @(".git", ".github", "build_temp", "*.zip", ".idea", ".vscode", "__pycache__")
+    $ExcludePatterns = @(".git", ".github", "build_temp", "*.zip", ".idea", ".vscode", "__pycache__", "logs", ".btrans_cache", "tmp")
     
     # Simple copy filter
     Get-ChildItem -Path $RepoRoot | Where-Object {
@@ -48,6 +48,12 @@ if ($UseLocalSource) {
         }
         -not $match
     } | Copy-Item -Destination $DestDir -Recurse -Force
+
+    # Ensure user-specific configs are never bundled into the release package
+    $UserConfigFiles = @("config.json", "*.bak", "folder_history.json")
+    foreach ($cfg in $UserConfigFiles) {
+        Remove-Item -Path (Join-Path $DestDir "config\$cfg") -Force -ErrorAction SilentlyContinue
+    }
 } else {
     # Determine download URL
     $SourceUrl = "https://github.com/dmMaze/BallonsTranslator/archive/refs/heads/dev.zip"

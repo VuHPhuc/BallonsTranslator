@@ -1,4 +1,4 @@
-import json, os, string, traceback
+import json, os, shutil, string, traceback
 import os.path as osp
 import copy
 from dataclasses import fields
@@ -395,6 +395,7 @@ class ProgramConfig(Config):
     window_maximized: bool = False
     remember_image_zoom: bool = True
     canvas_zoom: float = 1.0
+    custom_colors: List[str] = field(default_factory=list)
 
     @staticmethod
     def load(cfg_path: str):
@@ -490,6 +491,22 @@ class ProgramConfig(Config):
                 'Discard invalid remember_image_zoom config: expected a boolean.'
             )
             config_dict.pop('remember_image_zoom')
+
+        if 'custom_colors' in config_dict:
+            cc = config_dict['custom_colors']
+            if isinstance(cc, list):
+                cleaned_colors = []
+                for c in cc:
+                    if isinstance(c, str) and c.strip():
+                        cleaned_colors.append(c.strip())
+                        if len(cleaned_colors) >= 16:
+                            break
+                config_dict['custom_colors'] = cleaned_colors
+            else:
+                LOGGER.warning(
+                    'Discard invalid custom_colors config: expected a list of color strings.'
+                )
+                config_dict.pop('custom_colors')
 
         if 'module' in config_dict:
             module_cfg = config_dict['module']
@@ -592,16 +609,37 @@ def load_config(config_path: str = None):
         shared.CONFIG_PATH = config_path
         LOGGER.info(f'Using specified config file at {shared.CONFIG_PATH}')
 
-    if osp.exists(shared.CONFIG_PATH):
+    bak_path = shared.CONFIG_PATH + '.bak'
+    config = None
+
+    if osp.exists(shared.CONFIG_PATH) and osp.getsize(shared.CONFIG_PATH) > 0:
         try:
             config = ProgramConfig.load(shared.CONFIG_PATH)
         except Exception as e:
             LOGGER.exception(e)
-            LOGGER.warning("Failed to load config file, using default config")
-            config = ProgramConfig()
-            config_created_on_load = True
-    else:
-        LOGGER.info(f'{shared.CONFIG_PATH} does not exist, new config file will be created.')
+            LOGGER.warning(f"Failed to load config file at {shared.CONFIG_PATH}")
+            config = None
+
+    if config is None and osp.exists(bak_path) and osp.getsize(bak_path) > 0:
+        try:
+            LOGGER.info(f"Attempting to recover config from backup at {bak_path}...")
+            config = ProgramConfig.load(bak_path)
+            LOGGER.info(f"Successfully recovered config from backup: {bak_path}")
+            try:
+                shutil.copy2(bak_path, shared.CONFIG_PATH)
+                LOGGER.info(f"Restored primary config file from backup: {shared.CONFIG_PATH}")
+            except Exception as copy_err:
+                LOGGER.warning(f"Failed to restore primary config file from backup: {copy_err}")
+        except Exception as bak_err:
+            LOGGER.exception(bak_err)
+            LOGGER.warning(f"Failed to recover config from backup at {bak_path}.")
+            config = None
+
+    if config is None:
+        if osp.exists(shared.CONFIG_PATH):
+            LOGGER.warning("Using default config because both primary and backup configs failed to load.")
+        else:
+            LOGGER.info(f'{shared.CONFIG_PATH} does not exist, new config file will be created.')
         config = ProgramConfig()
         config_created_on_load = True
     
@@ -635,7 +673,7 @@ def json_dump_program_config(obj, **kwargs):
 
 
 def save_config():
-    global pcfg
+    global pcfg, config_created_on_load
     try:
         pcfg.global_fontformat.text_effects = without_project_raster_effects(
             pcfg.global_fontformat.text_effects
@@ -651,7 +689,15 @@ def save_config():
         LOGGER.error(traceback.format_exc())
         return False
     
+    bak_path = shared.CONFIG_PATH + '.bak'
+    try:
+        if osp.exists(shared.CONFIG_PATH) and osp.getsize(shared.CONFIG_PATH) > 0 and not config_created_on_load:
+            shutil.copy2(shared.CONFIG_PATH, bak_path)
+    except Exception as bak_e:
+        LOGGER.warning(f'Failed to maintain config backup at {bak_path}: {bak_e}')
+
     os.replace(tmp_save_tgt, shared.CONFIG_PATH)
+    config_created_on_load = False
     LOGGER.debug('Config saved')
     return True
 

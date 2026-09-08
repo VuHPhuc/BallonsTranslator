@@ -33,6 +33,8 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from ballontranslator.ui.color_dialog import sync_custom_colors_to_config
+
 from ballontranslator.utils.text_effects import GradientStop, LinearGradientPaint
 
 from ...misc import themed_icon_path
@@ -987,6 +989,7 @@ class InlineLinearGradientEditor(QWidget):
         finally:
             self.color_dialog_active_changed.emit(False)
             dialog.deleteLater()
+            sync_custom_colors_to_config(save=True)
 
     def _on_stop_color_preview(self, color: QColor) -> None:
         if not color.isValid():

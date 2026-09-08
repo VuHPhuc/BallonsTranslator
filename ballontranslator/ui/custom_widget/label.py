@@ -2,6 +2,7 @@ from typing import Callable, List, Optional, Union, Tuple
 
 import numpy as np
 from qtpy.QtWidgets import QGraphicsOpacityEffect, QLabel, QColorDialog, QMenu
+from ballontranslator.ui.color_dialog import get_color_dialog_color
 from qtpy.QtCore import (
     Qt,
     QEvent,
@@ -76,7 +77,7 @@ class ColorPickerLabel(QLabel):
                     self.setPickerColor(initial_color)
             if initial_color is None:
                 initial_color = QColor(255, 255, 255)
-            color = QColorDialog.getColor(initial_color, self.window())
+            color = get_color_dialog_color(initial_color, self.window())
             is_valid = color.isValid()
             if is_valid:
                 self.setPickerColor(color)

@@ -346,6 +346,13 @@ class BallonsTranslatorUpdater:
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 self._notify('backup_source', 10, filename)
                 shutil.copy2(source_path, target_path)
+            # Also backup user-owned config directory to ensure user settings are preserved
+            user_config_dir = self.program_path / 'config'
+            if user_config_dir.exists() and user_config_dir.is_dir():
+                backup_config_dir = staging_path / 'config'
+                backup_config_dir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(user_config_dir, backup_config_dir, dirs_exist_ok=True)
+
             staging_path.rename(backup_path)
         except Exception:
             shutil.rmtree(staging_path, ignore_errors=True)
@@ -453,6 +460,10 @@ class BallonsTranslatorUpdater:
 
     def _replace_directory(self, source: Path, target: Path) -> None:
         if not source.exists():
+            config_dir = self.program_path / 'config'
+            if target == config_dir or config_dir in target.parents:
+                LOGGER.info(f'Skipping removal of user-owned config target: {target}')
+                return
             LOGGER.info(f'Update archive no longer includes source directory; removing target: {target}')
             if target.is_dir():
                 shutil.rmtree(target)
@@ -484,6 +495,10 @@ class BallonsTranslatorUpdater:
                 shutil.rmtree(temp_target)
 
     def _replace_file(self, source: Path, target: Path) -> None:
+        config_dir = self.program_path / 'config'
+        if target.name.endswith('.json') and (target.parent == config_dir or config_dir in target.parents):
+            LOGGER.info(f'Protected user config file from being overwritten during update: {target.name}')
+            return
         if not source.is_file():
             raise RuntimeError(f'Update archive is missing source file: {source}')
         temp_target = target.with_name(f'.{target.name}.update_tmp')

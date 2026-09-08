@@ -69,6 +69,7 @@ from ballontranslator.utils.text_effects import (
 )
 
 from ...custom_widget.combobox import BottomBorderComboBox
+from ballontranslator.ui.color_dialog import get_color_dialog_color
 from ...icon_rendering import render_svg_pixmap
 from ...misc import themed_icon_path
 from ...llm_modality import LLM_MODALITY_IMAGE_COLOR
@@ -946,7 +947,7 @@ class StrokeEffectCard(_EffectCard):
             return
         self.color_dialog_active_changed.emit(True)
         try:
-            color = QColorDialog.getColor(
+            color = get_color_dialog_color(
                 QColor(*paint.color), self.window(), self.tr('Stroke Color')
             )
             if color.isValid():
@@ -1329,7 +1330,7 @@ class ShadowEffectCard(_EffectCard):
             return
         self.color_dialog_active_changed.emit(True)
         try:
-            color = QColorDialog.getColor(
+            color = get_color_dialog_color(
                 QColor(*paint.color), self.window(), self.tr('Shadow Color')
             )
             if color.isValid():
@@ -1642,7 +1643,7 @@ class GlowEffectCard(_EffectCard):
             return
         self.color_dialog_active_changed.emit(True)
         try:
-            color = QColorDialog.getColor(
+            color = get_color_dialog_color(
                 QColor(*paint.color), self.window(), self.tr('Glow Color')
             )
             if color.isValid():

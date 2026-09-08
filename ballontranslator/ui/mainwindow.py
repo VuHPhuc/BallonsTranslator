@@ -57,6 +57,7 @@ from .custom_widget import ScrollBar, Widget, ViewWidget
 from .global_search_widget import GlobalSearchWidget
 from .llm_context_editor import LLMContextEditor
 from .page_thumbnails import PageThumbnailLoader
+from .color_dialog import restore_custom_colors, sync_custom_colors_to_config
 from .text_engine.editing.commands import GlobalRepalceAllCommand
 from .text_engine.transforms.grid import start_grid_numba_warmup
 from .text_engine.effects.paint import (
@@ -223,6 +224,7 @@ class MainWindow(mainwindow_cls):
         )
         self.thumbnail_loader = PageThumbnailLoader(self)
         self.thumbnail_loader.thumbnails_ready.connect(self._on_thumbnails_ready)
+        restore_custom_colors()
 
     def resetStyleSheet(self):
         theme = 'eva-dark' if pcfg.darkmode else 'eva-light'
@@ -910,6 +912,7 @@ class MainWindow(mainwindow_cls):
         self.st_manager.blockSignals(True)
         self.canvas.prepareClose()
         self.saveWindowGeometry()
+        sync_custom_colors_to_config(save=False)
         self.save_config()
         return super().closeEvent(event)
 
@@ -980,6 +983,7 @@ class MainWindow(mainwindow_cls):
             self.restart_signal.emit()
 
     def save_config(self):
+        sync_custom_colors_to_config(save=False)
         save_config()
 
     def onHideCanvas(self):

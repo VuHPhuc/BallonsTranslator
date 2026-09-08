@@ -14,6 +14,7 @@
 | **04** | **Global Font Format Presets** | 14 mẫu phông chữ tiếng Việt định dạng sẵn (NÓI CHUYỆN, sfx, hét to, dẫn truyện...), lưu tại `config/textstyles/default.json`. | [04-global_font_format_presets.md](file:///d:/ai_stuff/Ballonstranslator_win_minium/doc/04-global_font_format_presets.md) |
 | **05** | **Window & Zoom Persistence** | Lưu nhớ kích thước cửa sổ (cho phép thu nhỏ về min, không ép fullscreen) và lưu tỷ lệ zoom ảnh (% setup). | [05-remember_window_size_and_image_zoom.md](file:///d:/ai_stuff/Ballonstranslator_win_minium/doc/05-remember_window_size_and_image_zoom.md) |
 | **06** | **Folder History & Startup Screen** | Màn hình chào lưu lịch sử mở thư mục bằng JSON (không mất khi update), phím tắt `Ctrl+O`/`Ctrl+H`, ngôi sao ⭐ bảo vệ thư mục khi xóa lịch sử. | [06-folder_history_and_startup_screen.md](file:///d:/ai_stuff/Ballonstranslator_win_minium/doc/06-folder_history_and_startup_screen.md) |
+| **07** | **Custom Colors & Settings Persistence** | Lưu 16 ô màu tùy chỉnh trong QColorDialog, tự động phục hồi cấu hình từ `.bak` và bảo vệ cài đặt tuyệt đối khi update. | [07-custom_color_and_settings_persistence.md](file:///d:/ai_stuff/Ballonstranslator_win_minium/doc/07-custom_color_and_settings_persistence.md) |
 
 ---
 
