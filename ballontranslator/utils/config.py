@@ -1,4 +1,4 @@
-import json, os, shutil, string, traceback
+import json, os, re, shutil, string, traceback
 import os.path as osp
 import copy
 from dataclasses import fields
@@ -247,15 +247,47 @@ class ModuleConfig(Config):
 
 @nested_dataclass
 class DrawPanelConfig(Config):
+    """Recover optional drawing settings independently when loading saved data.
+
+    >>> DrawPanelConfig().magicwand_tolerance
+    32
+    """
+
     pentool_color: List = field(default_factory=lambda: [0, 0, 0])
     pentool_width: float = 30.
     pentool_shape: int = 0
     inpainter_width: float = 30.
     inpainter_shape: int = 0
+    magicwand_tolerance: int = 32
+    magicwand_range: int = 0
+    magicwand_fill_mode: int = 0
     current_tool: int = 0
     rectool_auto: bool = False
     rectool_method: int = 0
     recttool_dilate_ksize: int = 2
+
+    def __post_init__(self) -> None:
+        for name, default, minimum, maximum in (
+            ('inpainter_shape', 0, 0, 2),
+            ('magicwand_tolerance', 32, 0, 255),
+            ('magicwand_range', 0, -50, 50),
+            ('magicwand_fill_mode', 0, 0, 2),
+        ):
+            raw = getattr(self, name)
+            try:
+                value = int(raw)
+                if isinstance(raw, float) and raw != value:
+                    raise ValueError('Expected an integer.')
+            except (TypeError, ValueError, OverflowError):
+                LOGGER.warning('Discard invalid drawpanel.%s %r.', name, raw)
+                value = default
+            if not minimum <= value <= maximum:
+                LOGGER.warning('Discard out-of-range drawpanel.%s %r.', name, raw)
+                value = (
+                    default if name in ('inpainter_shape', 'magicwand_fill_mode')
+                    else min(max(value, minimum), maximum)
+                )
+            setattr(self, name, value)
 
 @nested_dataclass
 class PackageManagerConfig(Config):
@@ -493,20 +525,25 @@ class ProgramConfig(Config):
             config_dict.pop('remember_image_zoom')
 
         if 'custom_colors' in config_dict:
-            cc = config_dict['custom_colors']
-            if isinstance(cc, list):
-                cleaned_colors = []
-                for c in cc:
-                    if isinstance(c, str) and c.strip():
-                        cleaned_colors.append(c.strip())
-                        if len(cleaned_colors) >= 16:
-                            break
-                config_dict['custom_colors'] = cleaned_colors
-            else:
+            custom_colors = config_dict['custom_colors']
+            if not isinstance(custom_colors, list):
                 LOGGER.warning(
-                    'Discard invalid custom_colors config: expected a list of color strings.'
+                    'Discard invalid custom_colors config: expected a list of colors.'
                 )
                 config_dict.pop('custom_colors')
+            else:
+                valid_colors = []
+                for color in custom_colors:
+                    if isinstance(color, str) and re.fullmatch(
+                        r'#[0-9a-fA-F]{6}', color
+                    ):
+                        valid_colors.append(color)
+                    else:
+                        LOGGER.warning(
+                            'Discard invalid entry in custom_colors config: %r.',
+                            color,
+                        )
+                config_dict['custom_colors'] = valid_colors
 
         if 'module' in config_dict:
             module_cfg = config_dict['module']
