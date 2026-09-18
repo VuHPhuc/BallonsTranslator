@@ -380,6 +380,7 @@ class Flux2Klein(InpainterBase):
 
     dependencies = [
         'torch',
+        'huggingface-hub>=0.34.0,<1.0',
         'diffusers>=0.37.1',
         'safetensors',
         'transformers==4.57.6',
