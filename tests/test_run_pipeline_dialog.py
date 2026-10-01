@@ -34,8 +34,6 @@ from ballontranslator.ui.run_pipeline_dialog import (
     RunPipelineDialog,
 )
 from ballontranslator.ui.configpanel import ConfigPanel
-from ballontranslator.ui.drawingpanel import DrawingPanel
-from ballontranslator.ui.canvas import Canvas
 from ballontranslator.ui.module_parse_widgets import ModuleParamDialog
 from ballontranslator.ui.mainwindow import MainWindow
 from ballontranslator.ui.mainwindowbars import TitleBar
@@ -604,22 +602,22 @@ class RunPipelineDialogTests(unittest.TestCase):
             lambda *args: config_requests.append(args)
         )
 
-        if activator.selector.count() > 1:
-            activator.selector.setCurrentIndex(
-                (activator.selector.currentIndex() + 1)
-                % activator.selector.count()
+        if activator.module_combo.count() > 1:
+            activator.module_combo.setCurrentIndex(
+                (activator.module_combo.currentIndex() + 1)
+                % activator.module_combo.count()
             )
             self.assertEqual(
                 selections[-1],
-                ('textdetector', activator.selector.currentText()),
+                ('textdetector', activator.module_combo.currentText()),
             )
         activator.config_button.click()
         self.assertEqual(
             config_requests[-1],
-            ('textdetector', activator.selector.currentText()),
+            ('textdetector', activator.module_combo.currentText()),
         )
         activator.button.setChecked(True)
-        activator.deactivate_button.click()
+        activator.button.click()
         self.assertFalse(activator.button.isChecked())
         activator.button.click()
         self.assertTrue(activator.button.isChecked())
@@ -964,21 +962,6 @@ class RunPipelineDialogTests(unittest.TestCase):
             self.assertIsNone(dialog_ref())
         outside.close()
 
-    def test_drawing_inpainter_selectors_are_independent_and_synchronized(self):
-        panel = DrawingPanel(Canvas())
-        panel.setInpainterOptions(['first', 'second'], 'first')
-        brush_row, rect_row = panel._inpainter_selector_rows()
-        self.assertIsNot(brush_row.selector, rect_row.selector)
-
-        changes = []
-        panel.inpainter_changed.connect(changes.append)
-        brush_row.selector.setCurrentText('second')
-
-        self.assertEqual(rect_row.selector.currentText(), 'second')
-        self.assertEqual(changes, ['second'])
-        panel.close()
-
-
     def test_dialog_uses_platform_move_resize_backend(self):
         dialog = RunPipelineDialog()
         dialog.show()
@@ -1065,6 +1048,8 @@ class RunPipelineDialogTests(unittest.TestCase):
             on_trans_src_changed=lambda _source: None,
             on_trans_tgt_changed=lambda _target: None,
             on_run_module_selected=lambda _module_type, _module_name: None,
+            on_run_llm_profile_selected=lambda _module_type, _profile_id: None,
+            llm_profile_selection_changed=FakeSignal(),
             show_module_param_dialog=lambda _module_type, _module_name: None,
         )
 
@@ -1084,6 +1069,7 @@ class RunPipelineDialogTests(unittest.TestCase):
                 self.translate_source_changed = FakeSignal()
                 self.translate_target_changed = FakeSignal()
                 self.module_selected = FakeSignal()
+                self.llm_profile_selected = FakeSignal()
                 self.module_config_requested = FakeSignal()
                 self.render_without_text_style_update = SimpleNamespace(
                     isChecked=lambda: self.preserve_style
@@ -1096,6 +1082,9 @@ class RunPipelineDialogTests(unittest.TestCase):
                 return self.pages
 
             def setModuleSelection(self, _module_type, _module_name):
+                pass
+
+            def refreshLLMSelections(self):
                 pass
 
             def deleteLater(self):

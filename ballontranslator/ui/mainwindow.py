@@ -138,6 +138,7 @@ class MainWindow(mainwindow_cls):
     show_llm_key_dialog = Signal(str, str)
     show_llm_model_dialog = Signal(str, str, str)
     show_llm_base_url_dialog = Signal(str, str, str)
+    llm_profile_selection_changed = Signal()
     
     def __init__(self, app: QApplication, config: ProgramConfig, open_dir='', **exec_args) -> None:
         super().__init__()
@@ -209,6 +210,11 @@ class MainWindow(mainwindow_cls):
         # The callbacks cannot run until construction returns to the event loop.
         QTimer.singleShot(0, start_effect_paint_numba_warmup)
         QTimer.singleShot(0, start_grid_numba_warmup)
+        if not shared.HEADLESS:
+            from .codex_account import CodexAccountController
+            # Restore persisted sign-in after all profile/selector listeners
+            # exist. Credential IO and HTTP stay in the account worker.
+            QTimer.singleShot(0, CodexAccountController.instance().restoreSession)
 
     def setupThread(self):
         self.imsave_thread = ImgSaveThread()
@@ -335,12 +341,12 @@ class MainWindow(mainwindow_cls):
         self.canvas.run_blktrans.connect(self.on_run_blktrans)
         self.canvas.drop_open_folder.connect(self.dropOpenDir)
         self.canvas.originallayer_trans_slider = self.bottomBar.originalSlider
-        self.canvas.textlayer_trans_slider = self.bottomBar.textlayerSlider
+        self.canvas.editing_layer_opacity_slider = self.bottomBar.editingLayerSlider
         self.canvas.copy_src_signal.connect(self.on_copy_src)
         self.canvas.paste_src_signal.connect(self.on_paste_src)
 
         self.bottomBar.originalSlider.valueChanged.connect(self.canvas.setOriginalTransparencyBySlider)
-        self.bottomBar.textlayerSlider.valueChanged.connect(self.canvas.setTextLayerTransparencyBySlider)
+        self.bottomBar.editingLayerSlider.valueChanged.connect(self.canvas.setEditingLayerOpacityBySlider)
         
         self.drawingPanel = DrawingPanel(self.canvas)
         self.textPanel = TextPanel(self.app)
@@ -442,7 +448,7 @@ class MainWindow(mainwindow_cls):
             metadata['lang_source'],
             metadata['lang_target'],
         )
-    def on_module_selection_changed(self, module_key: str, module_name: str):
+    def on_module_selection_changed(self, module_key: str, module_name: str) -> None:
         profile_id = ''
         if module_key == 'translator':
             self.setTranslatorSelectionFromMetadata(module_name)
@@ -454,12 +460,11 @@ class MainWindow(mainwindow_cls):
             profile_id = pcfg.module.ocr_llm_id
         elif module_key == 'inpainter':
             self.bottomBar.inpaint_selector.setSelectedValue(module_name)
-            self.drawingPanel.setInpainter(module_name)
             profile_id = pcfg.module.inpaint_llm_id
         if profile_id:
             self.configPanel.llm_profiles_panel.refreshSelectionBorders(profile_id)
 
-    def validateModuleSelections(self):
+    def validateModuleSelections(self) -> None:
         def valid_or_first(value, valid_values):
             if not valid_values:
                 return value
@@ -467,7 +472,11 @@ class MainWindow(mainwindow_cls):
 
         pcfg.module.textdetector = valid_or_first(pcfg.module.textdetector, GET_VALID_TEXTDETECTORS())
         pcfg.module.ocr = valid_or_first(pcfg.module.ocr, GET_VALID_OCR())
-        pcfg.module.inpainter = valid_or_first(pcfg.module.inpainter, GET_VALID_INPAINTERS())
+        inpainters = GET_VALID_INPAINTERS()
+        pcfg.module.inpainter = valid_or_first(pcfg.module.inpainter, inpainters)
+        if inpainters and pcfg.drawpanel.inpainter not in inpainters:
+            LOGGER.warning('Discard unavailable draw-panel inpainter %r.', pcfg.drawpanel.inpainter)
+            pcfg.drawpanel.inpainter = inpainters[0]
         pcfg.module.translator = valid_or_first(pcfg.module.translator, GET_VALID_TRANSLATORS())
 
     def setupConfig(self):
@@ -481,10 +490,7 @@ class MainWindow(mainwindow_cls):
         self.bottomBar.textdet_selector.setSelectedValue(pcfg.module.textdetector)
         self.bottomBar.ocr_selector.setSelectedValue(pcfg.module.ocr)
         self.bottomBar.inpaint_selector.setSelectedValue(pcfg.module.inpainter)
-        self.drawingPanel.setInpainterOptions(
-            GET_VALID_INPAINTERS(),
-            pcfg.module.inpainter,
-        )
+        self.drawingPanel.setInpainterOptions(GET_VALID_INPAINTERS())
 
         self.module_manager = module_manager = ModuleManager(self.imgtrans_proj)
         module_manager.imgtrans_pipeline_finished.connect(self.on_imgtrans_pipeline_finished)
@@ -522,21 +528,23 @@ class MainWindow(mainwindow_cls):
         self.bottomBar.ocr_selector.edit_clicked.connect(self.focus_llm_profile)
         self.bottomBar.ocr_selector.selector.currentTextChanged.connect(self.on_ocr_changed)
         self.bottomBar.ocr_selector.llm_profile_changed.connect(self.on_ocr_llm_profile_changed)
-        self.drawingPanel.inpainter_changed.connect(module_manager.selectInpainter)
-        self.drawingPanel.inpainter_config_requested.connect(self.to_inpaint_config)
+        self.drawingPanel.inpainter_config_requested.connect(self.to_drawing_inpaint_config)
+        self.llm_profile_selection_changed.connect(self.drawingPanel.refreshInpainterSelection)
         for idx, action in enumerate(self.titleBar.moduleVisibilityActions):
             self._set_module_tool_visibility(idx, action.isChecked())
 
         self.configPanel.llm_profiles_panel.profile_ui_updated.connect(self.on_llm_profile_ui_updated)
         self.configPanel.llm_profiles_panel.profile_summary_changed.connect(self.on_llm_profile_summary_changed)
+        self.configPanel.codex_panel.profile_ui_updated.connect(self.on_llm_profile_ui_updated)
+        self.configPanel.codex_panel.profile_summary_changed.connect(self.on_llm_profile_summary_changed)
         self.configPanel.llm_profiles_panel.set_translator_requested.connect(
-            self.bottomBar.trans_selector.selectLLMProfile
+            self.bottomBar.trans_selector.menu.selectLLMProfile
         )
         self.configPanel.llm_profiles_panel.set_ocr_requested.connect(
-            self.bottomBar.ocr_selector.selectLLMProfile
+            self.bottomBar.ocr_selector.menu.selectLLMProfile
         )
         self.configPanel.llm_profiles_panel.set_inpainter_requested.connect(
-            self.bottomBar.inpaint_selector.selectLLMProfile
+            self.bottomBar.inpaint_selector.menu.selectLLMProfile
         )
 
         self.drawingPanel.maskTransperancySlider.setValue(int(pcfg.mask_transparency * 100))
@@ -1699,6 +1707,10 @@ class MainWindow(mainwindow_cls):
         edit.setTextCursor(cursor)
 
     def shortcutEscape(self) -> None:
+        if self.canvas.cancel_shape_fill():
+            return
+        if self.canvas.reset_brush_line():
+            return
         if self.canvas.alpha_mask_edit_session.handle_escape():
             return
         if self.canvas.path_reorder_active:
@@ -1718,7 +1730,7 @@ class MainWindow(mainwindow_cls):
             self.rightComicTransStackPanel.setCurrentIndex(0)
             self.canvas.setPaintMode(True)
             self.bottomBar.originalSlider.show()
-            self.bottomBar.textlayerSlider.show()
+            self.bottomBar.editingLayerSlider.show()
             self.bottomBar.textblockChecker.hide()
         else:
             self.canvas.setPaintMode(False)
@@ -1850,6 +1862,9 @@ class MainWindow(mainwindow_cls):
     def to_inpaint_config(self):
         self.show_module_param_dialog('inpainter', pcfg.module.inpainter)
 
+    def to_drawing_inpaint_config(self) -> None:
+        self.show_module_param_dialog('inpainter', pcfg.drawpanel.inpainter)
+
     def to_ocr_config(self):
         self.show_module_param_dialog('ocr', pcfg.module.ocr)
 
@@ -1933,6 +1948,13 @@ class MainWindow(mainwindow_cls):
                 self.module_manager.translator_metadata(module_name)
             )
 
+    def on_run_llm_profile_selected(self, module_type: str, profile_id: str) -> None:
+        {
+            'translator': self.on_llm_profile_changed,
+            'ocr': self.on_ocr_llm_profile_changed,
+            'inpainter': self.on_inpaint_llm_profile_changed,
+        }[module_type](profile_id)
+
     def on_textdet_changed(self):
         module = self.bottomBar.textdet_selector.selector.currentText()
         self.module_manager.selectTextDetector(module)
@@ -1947,36 +1969,41 @@ class MainWindow(mainwindow_cls):
         self.module_manager.selectTranslator(module)
         self.bottomBar.trans_selector.updateButtonText()
 
-    def on_llm_profile_changed(self, profile_id: str):
+    def on_llm_profile_changed(self, profile_id: str) -> None:
         if profile_id:
             pcfg.module.translator_llm_id = profile_id
-            self.configPanel.llm_profiles_panel.syncProfile(profile_id)
+            self.configPanel.syncLLMProfile(profile_id)
             self.configPanel.llm_profiles_panel.setSelectedProfile('translator', profile_id)
         self.bottomBar.trans_selector.updateButtonText()
+        self.llm_profile_selection_changed.emit()
 
-    def on_ocr_llm_profile_changed(self, profile_id: str):
+    def on_ocr_llm_profile_changed(self, profile_id: str) -> None:
         if profile_id:
             pcfg.module.ocr_llm_id = profile_id
-            self.configPanel.llm_profiles_panel.syncProfile(profile_id)
+            self.configPanel.syncLLMProfile(profile_id)
             self.configPanel.llm_profiles_panel.setSelectedProfile('ocr', profile_id)
         self.bottomBar.ocr_selector.updateButtonText()
+        self.llm_profile_selection_changed.emit()
 
-    def on_inpaint_llm_profile_changed(self, profile_id: str):
+    def on_inpaint_llm_profile_changed(self, profile_id: str) -> None:
         if profile_id:
             pcfg.module.inpaint_llm_id = profile_id
-            self.configPanel.llm_profiles_panel.syncProfile(profile_id)
+            self.configPanel.syncLLMProfile(profile_id)
             self.configPanel.llm_profiles_panel.setSelectedProfile('inpainter', profile_id)
         self.bottomBar.inpaint_selector.updateButtonText()
+        self.llm_profile_selection_changed.emit()
 
-    def on_llm_profile_ui_updated(self):
+    def on_llm_profile_ui_updated(self) -> None:
         self.bottomBar.trans_selector.updateButtonText()
         self.bottomBar.ocr_selector.updateButtonText()
         self.bottomBar.inpaint_selector.updateButtonText()
+        self.llm_profile_selection_changed.emit()
 
-    def on_llm_profile_summary_changed(self):
+    def on_llm_profile_summary_changed(self) -> None:
         self.bottomBar.trans_selector.updateButtonText()
         self.bottomBar.ocr_selector.updateButtonText()
         self.bottomBar.inpaint_selector.updateButtonText()
+        self.llm_profile_selection_changed.emit()
 
     def on_trans_src_changed(self, text: str = None):
         sender = self.sender()
@@ -2040,7 +2067,7 @@ class MainWindow(mainwindow_cls):
         )
         return True
 
-    def on_imgtrans_pipeline_finished(self):
+    def on_imgtrans_pipeline_finished(self) -> None:
         self.backup_blkstyles.clear()
         self._run_imgtrans_wo_textstyle_update = False
         self._render_only = False
@@ -2052,7 +2079,12 @@ class MainWindow(mainwindow_cls):
         if shared.args.export_source_txt:
             self.on_export_txt('source')
         if shared.HEADLESS:
-            self.run_next_dir()
+            if self.module_manager.imgtrans_thread.isStopRequested():
+                LOGGER.error('Batch translation stopped; remaining directories were not processed.')
+                self.imsave_thread.wait()
+                self.app.quit()
+            else:
+                self.run_next_dir()
 
     def postprocess_translations(self, blk_list: List[TextBlock]) -> None:
         if not is_cjk(pcfg.module.translate_target):
@@ -2292,7 +2324,7 @@ class MainWindow(mainwindow_cls):
             pcfg.display_lang = lang
             self.set_display_lang(lang)
     
-    def run_imgtrans(self):
+    def run_imgtrans(self) -> None:
         dialog = RunPipelineDialog(
             self,
             project=self.imgtrans_proj,
@@ -2301,6 +2333,8 @@ class MainWindow(mainwindow_cls):
         dialog.translate_source_changed.connect(self.on_trans_src_changed)
         dialog.translate_target_changed.connect(self.on_trans_tgt_changed)
         dialog.module_selected.connect(self.on_run_module_selected)
+        dialog.llm_profile_selected.connect(self.on_run_llm_profile_selected)
+        self.llm_profile_selection_changed.connect(dialog.refreshLLMSelections)
         dialog.module_config_requested.connect(self.show_module_param_dialog)
         self.module_manager.module_selection_changed.connect(
             dialog.setModuleSelection
